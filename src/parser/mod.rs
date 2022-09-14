@@ -100,6 +100,7 @@ pub struct ParserConfig {
     pub marked_section_handling: MarkedSectionHandling,
     pub ignore_markup_declarations: bool,
     pub ignore_processing_instructions: bool,
+    pub ignore_entities: bool,
     entity_fn: Option<EntityFn>,
     parameter_entity_fn: Option<EntityFn>,
 }
@@ -121,6 +122,9 @@ impl ParserConfig {
     where
         E: nom::error::ContextError<&'a str> + nom::error::FromExternalError<&'a str, crate::Error>,
     {
+        if self.ignore_entities {
+            return Ok(Cow::from(rcdata));
+        }
         let f = self.entity_fn.as_deref().unwrap_or(&|_| None);
         entities::expand_entities(rcdata, f).map_err(|err| into_nom_failure(rcdata, err))
     }
@@ -236,6 +240,7 @@ impl Default for ParserConfig {
             marked_section_handling: Default::default(),
             ignore_markup_declarations: false,
             ignore_processing_instructions: false,
+            ignore_entities: false,
             entity_fn: None,
             parameter_entity_fn: None,
         }
@@ -335,6 +340,12 @@ impl ParserBuilder {
         T: Into<Cow<'static, str>>,
     {
         self.config.parameter_entity_fn = Some(Box::new(move |entity| f(entity).map(Into::into)));
+        self
+    }
+
+    /// Disable entity resolution.
+    pub fn ignore_entities(mut self, ignore: bool) -> Self {
+        self.config.ignore_entities = ignore;
         self
     }
 
